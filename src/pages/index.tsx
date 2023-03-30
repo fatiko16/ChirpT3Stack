@@ -6,6 +6,7 @@ import { api } from "~/utils/api";
 import type { RouterOutputs } from "~/utils/api";
 import relativeTime from "dayjs/plugin/relativeTime";
 import Image from "next/image";
+import { LoadingPage } from "~/components/loading";
 dayjs.extend(relativeTime);
 const CreatePostWizard = () => {
   const { user } = useUser();
@@ -56,13 +57,28 @@ const PostView = (props: PostWithUser) => {
   );
 };
 
-const Home: NextPage = () => {
-  const user = useUser();
-  const { data, isLoading } = api.posts.getAll.useQuery();
-  console.log(user);
-  if (isLoading) return <div>Loading...</div>;
-
+const Feed = () => {
+  const { data, isLoading: postsLoading } = api.posts.getAll.useQuery();
+  if (postsLoading) return <LoadingPage />;
   if (!data) return <div>Something went wrong!</div>;
+  return (
+    <div className="flex flex-col">
+      {[...data, ...data]?.map((fullPost) => (
+        <PostView {...fullPost} key={fullPost.post.id} />
+      ))}
+    </div>
+  );
+};
+
+const Home: NextPage = () => {
+  const { isLoaded: userLoaded, isSignedIn } = useUser();
+
+  //start fetching data as early as possible as react query shares the data
+  api.posts.getAll.useQuery();
+
+  // return empty div if user is not loaded
+  if (!userLoaded) return <div />;
+
   return (
     <>
       <Head>
@@ -72,19 +88,17 @@ const Home: NextPage = () => {
       </Head>
       <main className="flex h-screen justify-center">
         <div className="h-full w-full border-x border-slate-400  md:max-w-2xl">
-          <h1>
-            {!user.isSignedIn && (
-              <div className="flex justify-center">
-                <SignInButton />
-              </div>
-            )}
-            {user.isSignedIn && <CreatePostWizard />}
-          </h1>
-          <div className="flex flex-col">
-            {[...data, ...data]?.map((fullPost) => (
-              <PostView {...fullPost} key={fullPost.post.id} />
-            ))}
+          <div className="flex border-b border-slate-400 p-4">
+            <h1>
+              {!isSignedIn && (
+                <div className="flex justify-center">
+                  <SignInButton />
+                </div>
+              )}
+              {isSignedIn && <CreatePostWizard />}
+            </h1>
           </div>
+          <Feed />
         </div>
       </main>
     </>
